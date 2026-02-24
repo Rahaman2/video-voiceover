@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useVideoStore } from '../../store/videoStore'
 import { useTimelineStore } from '../../store/timelineStore'
-import { ClipExport } from '../../types'
+import { useVideoClipStore } from '../../store/videoClipStore'
+import { ClipExport, VideoClipExport } from '../../types'
 
 interface Props {
   onClose: () => void
@@ -10,8 +11,9 @@ interface Props {
 type ExportStatus = 'idle' | 'exporting' | 'done' | 'error'
 
 export function ExportModal({ onClose }: Props) {
-  const { videoPath } = useVideoStore()
+  const { videoPath, videoWidth, videoHeight } = useVideoStore()
   const { clips } = useTimelineStore()
+  const { clips: videoClips } = useVideoClipStore()
 
   const [status, setStatus] = useState<ExportStatus>('idle')
   const [progress, setProgress] = useState(0)
@@ -50,6 +52,13 @@ export function ExportModal({ onClose }: Props) {
       volume: c.volume
     }))
 
+    const videoClipExports: VideoClipExport[] = videoClips.map((vc) => ({
+      type: vc.type,
+      sourcePath: vc.sourcePath,
+      trimStart: vc.trimStart,
+      duration: vc.duration,
+    }))
+
     setStatus('exporting')
     setProgress(0)
     setErrorMsg(null)
@@ -58,7 +67,9 @@ export function ExportModal({ onClose }: Props) {
       await window.electronAPI.exportVideo({
         videoPath,
         outputPath: savePath,
-        clips: clipExports
+        clips: clipExports,
+        videoClips: videoClipExports,
+        videoDimensions: videoWidth > 0 ? { width: videoWidth, height: videoHeight } : undefined,
       })
     } catch (err) {
       // error is handled via IPC event
@@ -76,7 +87,11 @@ export function ExportModal({ onClose }: Props) {
         {/* Summary */}
         <div className="bg-surface rounded-lg p-3 text-sm text-muted">
           <div className="flex justify-between">
-            <span>Voice-over clips</span>
+            <span>Video segments</span>
+            <span className="text-white">{videoClips.length || 1}</span>
+          </div>
+          <div className="flex justify-between mt-1">
+            <span>Voice-over / music clips</span>
             <span className="text-white">{clips.length}</span>
           </div>
           <div className="flex justify-between mt-1">
@@ -85,7 +100,7 @@ export function ExportModal({ onClose }: Props) {
           </div>
           <div className="flex justify-between mt-1">
             <span>Output format</span>
-            <span className="text-white">MP4 (AAC audio)</span>
+            <span className="text-white">MP4 (H.264 / AAC)</span>
           </div>
         </div>
 

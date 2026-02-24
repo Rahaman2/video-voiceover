@@ -16,10 +16,19 @@ export interface Track {
   name: string
 }
 
+export interface VideoClipExport {
+  type: 'video' | 'image'
+  sourcePath: string
+  trimStart: number
+  duration: number
+}
+
 export interface ExportPayload {
   videoPath: string
   outputPath: string
   clips: ClipExport[]
+  videoClips?: VideoClipExport[]
+  videoDimensions?: { width: number; height: number }
 }
 
 export interface ClipExport {
@@ -38,6 +47,7 @@ declare global {
       openAudioDialog: () => Promise<string[]>
       saveFileDialog: (defaultName: string) => Promise<string | null>
       saveRecording: (buffer: ArrayBuffer) => Promise<string>
+      downloadMediaUrl: (url: string, ext: string) => Promise<string>
       exportVideo: (payload: ExportPayload) => Promise<string>
       onExportProgress: (cb: (pct: number) => void) => () => void
       onExportDone: (cb: (outputPath: string) => void) => () => void

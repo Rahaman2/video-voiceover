@@ -23,6 +23,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('ffmpeg:progress', handler)
   },
 
+  // Download a remote URL to a temp file (used by the media browser)
+  downloadMediaUrl: (url: string, ext: string) =>
+    ipcRenderer.invoke('media:downloadUrl', url, ext),
+
   // Listen to FFmpeg done / error
   onExportDone: (cb: (outputPath: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, p: string) => cb(p)

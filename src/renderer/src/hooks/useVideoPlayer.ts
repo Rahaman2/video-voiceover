@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { useVideoStore } from '../store/videoStore'
+import { useVideoClipStore } from '../store/videoClipStore'
 
 /**
  * Manages the <video> element ref and syncs it with videoStore.
@@ -7,7 +8,8 @@ import { useVideoStore } from '../store/videoStore'
  */
 export function useVideoPlayer() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const { setDuration, setCurrentTime, setIsPlaying, isPlaying } = useVideoStore()
+  const { setDuration, setCurrentTime, setIsPlaying, setVideoDimensions, isPlaying, videoPath } = useVideoStore()
+  const { resetFromVideo } = useVideoClipStore()
 
   // Sync time updates from the video element into the store
   useEffect(() => {
@@ -15,7 +17,15 @@ export function useVideoPlayer() {
     if (!el) return
 
     const onTimeUpdate = () => setCurrentTime(el.currentTime)
-    const onDurationChange = () => setDuration(el.duration || 0)
+    const onDurationChange = () => {
+      const dur = el.duration || 0
+      setDuration(dur)
+      // Capture video dimensions and initialise the video clip store
+      if (dur > 0 && videoPath) {
+        setVideoDimensions(el.videoWidth, el.videoHeight)
+        resetFromVideo(videoPath, dur)
+      }
+    }
     const onPlay = () => setIsPlaying(true)
     const onPause = () => setIsPlaying(false)
     const onEnded = () => setIsPlaying(false)
@@ -30,12 +40,12 @@ export function useVideoPlayer() {
     return () => {
       el.removeEventListener('timeupdate', onTimeUpdate)
       el.removeEventListener('durationchange', onDurationChange)
-      el.removeEventListener('loadedmetadata', onDurationChange)
+      el.removeEventListener('loadedmetadata', onDurationChange)  // eslint-disable-line
       el.removeEventListener('play', onPlay)
       el.removeEventListener('pause', onPause)
       el.removeEventListener('ended', onEnded)
     }
-  }, [setCurrentTime, setDuration, setIsPlaying])
+  }, [setCurrentTime, setDuration, setIsPlaying, setVideoDimensions, videoPath, resetFromVideo])
 
   const play = useCallback(() => videoRef.current?.play(), [])
   const pause = useCallback(() => videoRef.current?.pause(), [])

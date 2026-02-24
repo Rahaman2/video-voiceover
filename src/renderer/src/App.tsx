@@ -4,12 +4,16 @@ import { Toolbar } from './components/Toolbar/Toolbar'
 import { Timeline } from './components/Timeline/Timeline'
 import { AudioRecorder } from './components/AudioRecorder/AudioRecorder'
 import { ExportModal } from './components/ExportModal/ExportModal'
+import { MediaBrowser } from './components/MediaBrowser'
 import { useVideoPlayer } from './hooks/useVideoPlayer'
 import { useAudioPreview } from './hooks/useAudioPreview'
+// Initialise media providers (side-effect import — safe to remove if feature is disabled)
+import './plugins/media'
 
 export default function App() {
   const [showRecorder, setShowRecorder] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [showMediaBrowser, setShowMediaBrowser] = useState(false)
 
   // Controls reference from VideoPlayer (seek, play, pause)
   const seekRef = useRef<((time: number) => void) | null>(null)
@@ -47,6 +51,7 @@ export default function App() {
       <Toolbar
         onOpenRecorder={() => setShowRecorder(true)}
         onOpenExport={() => setShowExport(true)}
+        onOpenMediaBrowser={() => setShowMediaBrowser(true)}
       />
 
       {/* Top 2/3: Video player — full width */}
@@ -62,6 +67,7 @@ export default function App() {
       {/* Modals */}
       {showRecorder && <AudioRecorder onClose={() => setShowRecorder(false)} />}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
+      {showMediaBrowser && <MediaBrowser onClose={() => setShowMediaBrowser(false)} />}
     </div>
   )
 }
