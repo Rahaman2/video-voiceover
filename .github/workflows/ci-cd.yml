@@ -56,7 +56,6 @@ jobs:
             dist/*.exe
             dist/*.exe.blockmap
             dist/latest.yml
-            dist/builder-debug.yml
 
   build-macos:
     needs: generate-tag
@@ -82,7 +81,6 @@ jobs:
             dist/*.zip
             dist/*.zip.blockmap
             dist/latest-mac.yml
-            dist/builder-debug.yml
 
   build-linux:
     needs: generate-tag
@@ -106,7 +104,6 @@ jobs:
             dist/*.AppImage
             dist/*.snap
             dist/latest-linux.yml
-            dist/builder-debug.yml
 
   release:
     needs: [generate-tag, build-windows, build-macos, build-linux]
