@@ -8,24 +8,39 @@ on:
 jobs:
   generate-tag:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      tag: ${{ steps.bump.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate release tag from package.json
-        id: tag
+      - name: Configure git
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump patch version and generate tag
+        id: bump
+        run: |
+          npm version patch --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           TAG="v${VERSION}"
           echo "Generated tag: $TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          git add -u
+          git commit -m "chore: bump version to ${VERSION} [skip ci]"
+          git push origin release
 
   build-windows:
     needs: generate-tag
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: release
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -44,6 +59,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: release
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -62,6 +79,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: release
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -109,4 +128,3 @@ jobs:
           files: release-assets/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
