@@ -52,7 +52,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts
-          path: dist/
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+            dist/latest.yml
+            dist/builder-debug.yml
 
   build-macos:
     needs: generate-tag
@@ -72,7 +76,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos-artifacts
-          path: dist/
+          path: |
+            dist/*.dmg
+            dist/*.dmg.blockmap
+            dist/*.zip
+            dist/*.zip.blockmap
+            dist/latest-mac.yml
+            dist/builder-debug.yml
 
   build-linux:
     needs: generate-tag
@@ -92,7 +102,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: linux-artifacts
-          path: dist/
+          path: |
+            dist/*.AppImage
+            dist/*.snap
+            dist/latest-linux.yml
+            dist/builder-debug.yml
 
   release:
     needs: [generate-tag, build-windows, build-macos, build-linux]
