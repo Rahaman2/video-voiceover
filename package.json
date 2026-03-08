@@ -1,6 +1,6 @@
 {
   "name": "voice-over",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Desktop voice-over editor for videos",
   "main": "out/main/index.js",
   "scripts": {
