@@ -1,6 +1,6 @@
 {
   "name": "voice-over",
-  "version": "1.0.3",
+  "version": "0.0.1",
   "description": "Desktop voice-over editor for videos",
   "main": "out/main/index.js",
   "scripts": {
@@ -37,6 +37,7 @@
   "build": {
     "appId": "com.voiceover.app",
     "productName": "VoiceOver",
+    "icon": "src/resources/voiceover-logo.png",
     "directories": {
       "output": "dist"
     },

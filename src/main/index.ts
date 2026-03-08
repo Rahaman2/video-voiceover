@@ -1,6 +1,8 @@
 import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+
+declare const __resources: string
 import { registerFileHandlers } from './ipc/fileHandlers'
 import { registerFfmpegHandlers } from './ipc/ffmpegHandlers'
 import { registerMediaHandlers } from './ipc/mediaHandlers'
@@ -13,6 +15,8 @@ function createWindow(): void {
     minHeight: 600,
     backgroundColor: '#1a1a2e',
     titleBarStyle: 'default',
+    icon: join(__resources, 'voiceover-logo.png'),
+    // alwaysOnTop: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
