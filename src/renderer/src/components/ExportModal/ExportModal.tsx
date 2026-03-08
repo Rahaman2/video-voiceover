@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useVideoStore } from '../../store/videoStore'
 import { useTimelineStore } from '../../store/timelineStore'
 import { useVideoClipStore } from '../../store/videoClipStore'
-import { ClipExport, VideoClipExport } from '../../types'
+import { useCaptionStore } from '../../store/captionStore'
+import { ClipExport, VideoClipExport, CaptionExport } from '../../types'
 
 interface Props {
   onClose: () => void
@@ -14,11 +15,13 @@ export function ExportModal({ onClose }: Props) {
   const { videoPath, videoWidth, videoHeight } = useVideoStore()
   const { clips } = useTimelineStore()
   const { clips: videoClips } = useVideoClipStore()
+  const { clips: captionClips } = useCaptionStore()
 
   const [status, setStatus] = useState<ExportStatus>('idle')
   const [progress, setProgress] = useState(0)
   const [outputPath, setOutputPath] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [burnCaptions, setBurnCaptions] = useState(true)
 
   // Subscribe to FFmpeg events
   useEffect(() => {
@@ -59,6 +62,13 @@ export function ExportModal({ onClose }: Props) {
       duration: vc.duration,
     }))
 
+    const captionExports: CaptionExport[] = captionClips.map((c) => ({
+      text: c.text,
+      startTime: c.startTime,
+      duration: c.duration,
+      style: c.style as unknown as Record<string, unknown>
+    }))
+
     setStatus('exporting')
     setProgress(0)
     setErrorMsg(null)
@@ -70,10 +80,24 @@ export function ExportModal({ onClose }: Props) {
         clips: clipExports,
         videoClips: videoClipExports,
         videoDimensions: videoWidth > 0 ? { width: videoWidth, height: videoHeight } : undefined,
+        captions: burnCaptions && captionExports.length > 0 ? captionExports : undefined,
       })
     } catch (err) {
       // error is handled via IPC event
     }
+  }
+
+  async function handleExportSrt() {
+    if (captionClips.length === 0) return
+    const savePath = await window.electronAPI.saveFileDialog('captions.srt')
+    if (!savePath) return
+    const captionExports: CaptionExport[] = captionClips.map((c) => ({
+      text: c.text,
+      startTime: c.startTime,
+      duration: c.duration,
+      style: c.style as unknown as Record<string, unknown>
+    }))
+    await window.electronAPI.exportSrt({ captions: captionExports, outputPath: savePath })
   }
 
   return (
@@ -95,6 +119,10 @@ export function ExportModal({ onClose }: Props) {
             <span className="text-white">{clips.length}</span>
           </div>
           <div className="flex justify-between mt-1">
+            <span>Caption clips</span>
+            <span className="text-white">{captionClips.length}</span>
+          </div>
+          <div className="flex justify-between mt-1">
             <span>Original audio</span>
             <span className="text-white">Muted</span>
           </div>
@@ -103,6 +131,30 @@ export function ExportModal({ onClose }: Props) {
             <span className="text-white">MP4 (H.264 / AAC)</span>
           </div>
         </div>
+
+        {/* Caption export options */}
+        {captionClips.length > 0 && (
+          <div className="bg-surface rounded-lg p-3 text-sm space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={burnCaptions}
+                onChange={(e) => setBurnCaptions(e.target.checked)}
+                className="accent-highlight w-4 h-4"
+              />
+              <span className="text-white">Burn captions into video</span>
+            </label>
+            <button
+              onClick={handleExportSrt}
+              className="flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export SRT file separately
+            </button>
+          </div>
+        )}
 
         {/* Progress */}
         {status === 'exporting' && (

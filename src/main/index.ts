@@ -5,6 +5,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerFileHandlers } from './ipc/fileHandlers'
 import { registerFfmpegHandlers } from './ipc/ffmpegHandlers'
 import { registerMediaHandlers } from './ipc/mediaHandlers'
+import { registerCaptionHandlers } from './ipc/captionHandlers'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -52,6 +53,7 @@ app.whenReady().then(() => {
   registerFileHandlers()
   registerFfmpegHandlers()
   registerMediaHandlers()
+  registerCaptionHandlers()
 
   createWindow()
 

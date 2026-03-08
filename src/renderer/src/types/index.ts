@@ -23,12 +23,52 @@ export interface VideoClipExport {
   duration: number
 }
 
+export interface CaptionStyle {
+  fontFamily: string
+  fontSize: number
+  color: string
+  outlineColor: string
+  outlineWidth: number
+  backgroundOpacity: number
+  backgroundColor: string
+  verticalPosition: 'top' | 'center' | 'bottom' | 'custom'
+  verticalPercent: number
+}
+
+export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
+  fontFamily: 'Arial',
+  fontSize: 24,
+  color: '#ffffff',
+  outlineColor: '#000000',
+  outlineWidth: 2,
+  backgroundOpacity: 0.4,
+  backgroundColor: '#000000',
+  verticalPosition: 'bottom',
+  verticalPercent: 85
+}
+
+export interface CaptionClip {
+  id: string
+  text: string
+  startTime: number
+  duration: number
+  style: CaptionStyle
+}
+
+export interface CaptionExport {
+  text: string
+  startTime: number
+  duration: number
+  style: CaptionStyle
+}
+
 export interface ExportPayload {
   videoPath: string
   outputPath: string
   clips: ClipExport[]
   videoClips?: VideoClipExport[]
   videoDimensions?: { width: number; height: number }
+  captions?: CaptionExport[]
 }
 
 export interface ClipExport {
@@ -52,6 +92,9 @@ declare global {
       onExportProgress: (cb: (pct: number) => void) => () => void
       onExportDone: (cb: (outputPath: string) => void) => () => void
       onExportError: (cb: (msg: string) => void) => () => void
+      transcribeVideo: (videoPath: string) => Promise<CaptionExport[]>
+      onTranscribeProgress: (cb: (data: { stage: 'download' | 'transcribe'; pct: number }) => void) => () => void
+      exportSrt: (payload: { captions: CaptionExport[]; outputPath: string }) => Promise<string>
     }
   }
 }

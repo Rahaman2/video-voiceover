@@ -1,6 +1,42 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { spawn } from 'child_process'
+import { writeFileSync, unlinkSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
 import ffmpegPath from 'ffmpeg-static'
+
+interface CaptionExport {
+  text: string
+  startTime: number
+  duration: number
+  style: Record<string, unknown>
+}
+
+function pad2(n: number): string { return String(n).padStart(2, '0') }
+
+function secondsToSrtTime(s: number): string {
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = Math.floor(s % 60)
+  const ms = Math.round((s % 1) * 1000)
+  return `${pad2(h)}:${pad2(m)}:${pad2(sec)},${String(ms).padStart(3, '0')}`
+}
+
+export function generateSrt(captions: CaptionExport[]): string {
+  return captions
+    .slice()
+    .sort((a, b) => a.startTime - b.startTime)
+    .map((cap, i) => {
+      const start = secondsToSrtTime(cap.startTime)
+      const end = secondsToSrtTime(cap.startTime + cap.duration)
+      return `${i + 1}\n${start} --> ${end}\n${cap.text}`
+    })
+    .join('\n\n')
+}
+
+function escapeSrtPath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/:/g, '\\:')
+}
 
 interface ClipExport {
   audioPath: string
@@ -24,12 +60,20 @@ interface ExportPayload {
   /** Present when the user has edited the video (split/image inserts) */
   videoClips?: VideoClipExport[]
   videoDimensions?: { width: number; height: number }
+  captions?: CaptionExport[]
 }
 
 export function registerFfmpegHandlers(): void {
   ipcMain.handle('ffmpeg:export', async (event, payload: ExportPayload) => {
-    const { videoPath, outputPath, clips, videoClips, videoDimensions } = payload
+    const { videoPath, outputPath, clips, videoClips, videoDimensions, captions } = payload
     const win = BrowserWindow.fromWebContents(event.sender)
+
+    // Write temp SRT file if captions are present
+    let srtPath: string | undefined
+    if (captions && captions.length > 0) {
+      srtPath = join(tmpdir(), `voiceover-captions-${Date.now()}.srt`)
+      writeFileSync(srtPath, generateSrt(captions), 'utf-8')
+    }
 
     return new Promise<string>((resolve, reject) => {
       // Use the concat/image path only when actual editing has happened
@@ -39,8 +83,8 @@ export function registerFfmpegHandlers(): void {
         !(videoClips.length === 1 && videoClips[0].type === 'video' && videoClips[0].trimStart === 0)
 
       const args = useVideoEditing
-        ? buildFfmpegArgsWithVideoClips(videoPath, outputPath, clips, videoClips!, videoDimensions)
-        : buildFfmpegArgs(videoPath, outputPath, clips)
+        ? buildFfmpegArgsWithVideoClips(videoPath, outputPath, clips, videoClips!, videoDimensions, srtPath)
+        : buildFfmpegArgs(videoPath, outputPath, clips, srtPath)
 
       const ffmpeg = spawn(ffmpegPath as string, args)
 
@@ -69,6 +113,7 @@ export function registerFfmpegHandlers(): void {
       })
 
       ffmpeg.on('close', (code) => {
+        if (srtPath) { try { unlinkSync(srtPath) } catch { /* ignore */ } }
         if (code === 0) {
           win?.webContents.send('ffmpeg:done', outputPath)
           resolve(outputPath)
@@ -81,6 +126,7 @@ export function registerFfmpegHandlers(): void {
 
       ffmpeg.on('error', (err) => {
         win?.webContents.send('ffmpeg:error', err.message)
+        if (srtPath) { try { unlinkSync(srtPath) } catch { /* ignore */ } }
         reject(err)
       })
     })
@@ -89,7 +135,7 @@ export function registerFfmpegHandlers(): void {
 
 // ─── Simple export (original behaviour — no video editing) ───────────────────
 
-function buildFfmpegArgs(videoPath: string, outputPath: string, clips: ClipExport[]): string[] {
+function buildFfmpegArgs(videoPath: string, outputPath: string, clips: ClipExport[], srtPath?: string): string[] {
   const args: string[] = ['-y', '-i', videoPath]
 
   clips.forEach((clip) => {
@@ -98,8 +144,17 @@ function buildFfmpegArgs(videoPath: string, outputPath: string, clips: ClipExpor
     args.push('-i', clip.audioPath)
   })
 
-  if (clips.length === 0) {
+  if (clips.length === 0 && !srtPath) {
     args.push('-an', '-c:v', 'copy', outputPath)
+    return args
+  }
+
+  if (clips.length === 0 && srtPath) {
+    // No audio clips but has captions — need to re-encode video
+    args.push('-an')
+    args.push('-vf', `subtitles='${escapeSrtPath(srtPath)}'`)
+    args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23')
+    args.push(outputPath)
     return args
   }
 
@@ -117,7 +172,15 @@ function buildFfmpegArgs(videoPath: string, outputPath: string, clips: ClipExpor
   args.push('-filter_complex', filterParts.join(';'))
   args.push('-map', '0:v')
   args.push('-map', '[aout]')
-  args.push('-c:v', 'copy')
+
+  if (srtPath) {
+    // Must re-encode to burn in subtitles
+    args.push('-vf', `subtitles='${escapeSrtPath(srtPath)}'`)
+    args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23')
+  } else {
+    args.push('-c:v', 'copy')
+  }
+
   args.push('-c:a', 'aac')
   args.push('-shortest')
   args.push(outputPath)
@@ -133,6 +196,7 @@ function buildFfmpegArgsWithVideoClips(
   clips: ClipExport[],
   videoClips: VideoClipExport[],
   dimensions?: { width: number; height: number },
+  srtPath?: string,
 ): string[] {
   // Target resolution — use actual video dimensions or fall back to 1280×720
   const W = dimensions?.width || 1280
@@ -185,11 +249,20 @@ function buildFfmpegArgsWithVideoClips(
     videoLabels.push(outLabel)
   })
 
-  // Concatenate all video segments into [vout]
-  if (videoLabels.length === 1) {
-    filterParts.push(`${videoLabels[0]}copy[vout]`)
+  // Concatenate all video segments, then optionally burn in subtitles → [vout]
+  if (srtPath) {
+    const escaped = escapeSrtPath(srtPath)
+    if (videoLabels.length === 1) {
+      filterParts.push(`${videoLabels[0]}subtitles='${escaped}'[vout]`)
+    } else {
+      filterParts.push(`${videoLabels.join('')}concat=n=${videoLabels.length}:v=1:a=0[vconcat];[vconcat]subtitles='${escaped}'[vout]`)
+    }
   } else {
-    filterParts.push(`${videoLabels.join('')}concat=n=${videoLabels.length}:v=1:a=0[vout]`)
+    if (videoLabels.length === 1) {
+      filterParts.push(`${videoLabels[0]}copy[vout]`)
+    } else {
+      filterParts.push(`${videoLabels.join('')}concat=n=${videoLabels.length}:v=1:a=0[vout]`)
+    }
   }
 
   // Audio mixing

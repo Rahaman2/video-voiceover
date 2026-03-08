@@ -7,9 +7,12 @@ interface Props {
   onOpenRecorder: () => void
   onOpenExport: () => void
   onOpenMediaBrowser: () => void
+  onAutoCaption: () => void
+  transcriptionStatus: 'idle' | 'downloading' | 'transcribing' | 'done' | 'error'
+  transcriptionProgress: number
 }
 
-export function Toolbar({ onOpenRecorder, onOpenExport, onOpenMediaBrowser }: Props) {
+export function Toolbar({ onOpenRecorder, onOpenExport, onOpenMediaBrowser, onAutoCaption, transcriptionStatus, transcriptionProgress }: Props) {
   const { videoPath, setVideoPath } = useVideoStore()
   const { tracks, addClip } = useTimelineStore()
 
@@ -92,6 +95,29 @@ export function Toolbar({ onOpenRecorder, onOpenExport, onOpenMediaBrowser }: Pr
         onClick={onOpenRecorder}
         className="text-red-400 hover:text-red-300"
       />
+
+      {/* Auto-Caption */}
+      <button
+        onClick={onAutoCaption}
+        disabled={!videoPath || transcriptionStatus === 'downloading' || transcriptionStatus === 'transcribing'}
+        title="Auto-detect captions using Whisper AI (downloads ~150MB model on first use)"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-sm text-muted
+                   hover:text-white hover:bg-accent/50 disabled:opacity-40 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M7 8h10M7 12h6m-6 4h10M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+        </svg>
+        {transcriptionStatus === 'downloading' && (
+          <span>Downloading… {transcriptionProgress}%</span>
+        )}
+        {transcriptionStatus === 'transcribing' && (
+          <span>Transcribing… {transcriptionProgress}%</span>
+        )}
+        {(transcriptionStatus === 'idle' || transcriptionStatus === 'done' || transcriptionStatus === 'error') && (
+          <span>Auto-Caption</span>
+        )}
+      </button>
 
       <div className="flex-1" />
 

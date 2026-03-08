@@ -37,13 +37,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_: Electron.IpcRendererEvent, msg: string) => cb(msg)
     ipcRenderer.on('ffmpeg:error', handler)
     return () => ipcRenderer.removeListener('ffmpeg:error', handler)
-  }
+  },
+
+  // Export captions as a standalone SRT file
+  exportSrt: (payload: { captions: CaptionExport[]; outputPath: string }) =>
+    ipcRenderer.invoke('caption:exportSrt', payload),
+
+  // Whisper auto-transcription
+  transcribeVideo: (videoPath: string) =>
+    ipcRenderer.invoke('caption:transcribe', videoPath),
+
+  onTranscribeProgress: (cb: (data: { stage: 'download' | 'transcribe'; pct: number }) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, data: { stage: 'download' | 'transcribe'; pct: number }) => cb(data)
+    ipcRenderer.on('caption:transcribeProgress', handler)
+    return () => ipcRenderer.removeListener('caption:transcribeProgress', handler)
+  },
 })
+
+interface CaptionExport {
+  text: string
+  startTime: number
+  duration: number
+  style: Record<string, unknown>
+}
 
 interface ExportPayload {
   videoPath: string
   outputPath: string
   clips: ClipExport[]
+  captions?: CaptionExport[]
 }
 
 interface ClipExport {

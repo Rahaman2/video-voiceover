@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { useVideoStore } from '../../store/videoStore'
 import { useVideoPlayer } from '../../hooks/useVideoPlayer'
+import { CaptionOverlay } from './CaptionOverlay'
 
 interface Props {
   onPlayerReady: (controls: ReturnType<typeof useVideoPlayer>) => void
@@ -46,6 +47,9 @@ export function VideoPlayer({ onPlayerReady }: Props) {
           style={{ display: videoPath ? 'block' : 'none' }}
           onClick={togglePlayPause}
         />
+        {/* Caption overlay — sits above the video, pointer-events-none */}
+        {videoPath && <CaptionOverlay currentTime={currentTime} />}
+
         {!videoPath && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted text-sm gap-2 pointer-events-none">
             <svg className="w-14 h-14 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -5,8 +5,11 @@ import { Timeline } from './components/Timeline/Timeline'
 import { AudioRecorder } from './components/AudioRecorder/AudioRecorder'
 import { ExportModal } from './components/ExportModal/ExportModal'
 import { MediaBrowser } from './components/MediaBrowser'
+import { CaptionStyleEditor } from './components/Timeline/CaptionStyleEditor'
 import { useVideoPlayer } from './hooks/useVideoPlayer'
 import { useAudioPreview } from './hooks/useAudioPreview'
+import { useCaptionStore } from './store/captionStore'
+import { useVideoStore } from './store/videoStore'
 // Initialise media providers (side-effect import — safe to remove if feature is disabled)
 import './plugins/media'
 
@@ -14,6 +17,13 @@ export default function App() {
   const [showRecorder, setShowRecorder] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showMediaBrowser, setShowMediaBrowser] = useState(false)
+
+  const { videoPath } = useVideoStore()
+  const {
+    bulkAddClips,
+    transcriptionStatus, transcriptionProgress,
+    setTranscriptionStatus, setTranscriptionProgress, setTranscriptionError
+  } = useCaptionStore()
 
   // Controls reference from VideoPlayer (seek, play, pause)
   const seekRef = useRef<((time: number) => void) | null>(null)
@@ -28,6 +38,30 @@ export default function App() {
 
   // Audio preview: plays timeline clips in sync with the video during preview
   useAudioPreview()
+
+  // Auto-caption using Whisper
+  const handleAutoCaption = useCallback(async () => {
+    if (!videoPath) return
+    setTranscriptionError(null)
+    setTranscriptionStatus('downloading')
+    setTranscriptionProgress(0)
+
+    const offProgress = window.electronAPI.onTranscribeProgress(({ stage, pct }) => {
+      setTranscriptionStatus(stage === 'download' ? 'downloading' : 'transcribing')
+      setTranscriptionProgress(pct)
+    })
+
+    try {
+      const captions = await window.electronAPI.transcribeVideo(videoPath)
+      bulkAddClips(captions)
+      setTranscriptionStatus('done')
+    } catch (err) {
+      setTranscriptionError(err instanceof Error ? err.message : 'Transcription failed')
+      setTranscriptionStatus('error')
+    } finally {
+      offProgress()
+    }
+  }, [videoPath, bulkAddClips, setTranscriptionStatus, setTranscriptionProgress, setTranscriptionError])
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -52,6 +86,9 @@ export default function App() {
         onOpenRecorder={() => setShowRecorder(true)}
         onOpenExport={() => setShowExport(true)}
         onOpenMediaBrowser={() => setShowMediaBrowser(true)}
+        onAutoCaption={handleAutoCaption}
+        transcriptionStatus={transcriptionStatus}
+        transcriptionProgress={transcriptionProgress}
       />
 
       {/* Top 2/3: Video player — full width */}
@@ -68,6 +105,8 @@ export default function App() {
       {showRecorder && <AudioRecorder onClose={() => setShowRecorder(false)} />}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
       {showMediaBrowser && <MediaBrowser onClose={() => setShowMediaBrowser(false)} />}
+      {/* Caption style editor — shown when a caption clip is double-clicked */}
+      <CaptionStyleEditor />
     </div>
   )
 }

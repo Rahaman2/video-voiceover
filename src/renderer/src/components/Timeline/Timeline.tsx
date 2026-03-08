@@ -2,9 +2,12 @@ import React, { useRef, useCallback } from 'react'
 import { useTimelineStore } from '../../store/timelineStore'
 import { useVideoStore } from '../../store/videoStore'
 import { useVideoClipStore } from '../../store/videoClipStore'
+import { useCaptionStore } from '../../store/captionStore'
+import { DEFAULT_CAPTION_STYLE } from '../../types'
 import { TimeRuler } from './TimeRuler'
 import { Track } from './Track'
 import { VideoTrack } from './VideoTrack'
+import { CaptionTrack } from './CaptionTrack'
 import { Playhead } from './Playhead'
 
 const TRACK_HEIGHT = 56
@@ -18,12 +21,14 @@ export function Timeline({ onSeek }: Props) {
   const { tracks, clips, pixelsPerSecond, setPixelsPerSecond, addTrack } = useTimelineStore()
   const { duration, currentTime, videoPath } = useVideoStore()
   const { clips: videoClips, splitAtTime } = useVideoClipStore()
+  const { addClip: addCaptionClip } = useCaptionStore()
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const hasVideoClips = videoClips.length > 0
   const videoTrackCount = hasVideoClips ? 1 : 0
+  const captionTrackCount = videoPath ? 1 : 0
   const totalWidth = Math.max(duration * pixelsPerSecond, 1200) + 200
-  const trackAreaHeight = Math.max((tracks.length + videoTrackCount) * TRACK_HEIGHT, 120)
+  const trackAreaHeight = Math.max((tracks.length + videoTrackCount + captionTrackCount) * TRACK_HEIGHT, 120)
 
   const handleRulerClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -83,6 +88,25 @@ export function Timeline({ onSeek }: Props) {
           </>
         )}
 
+        {/* Add caption at playhead */}
+        {videoPath && (
+          <>
+            <div className="w-px h-4 bg-accent/40 mx-1" />
+            <button
+              onClick={() => addCaptionClip({ text: '', startTime: currentTime, duration: 3, style: DEFAULT_CAPTION_STYLE })}
+              title="Add caption at playhead position"
+              className="flex items-center gap-1 text-xs text-muted hover:text-white
+                         px-2 py-1 rounded hover:bg-accent/40 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M7 8h10M7 12h6m-6 4h10M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+              </svg>
+              + Caption
+            </button>
+          </>
+        )}
+
         <div className="flex-1" />
 
         <button
@@ -131,6 +155,14 @@ export function Timeline({ onSeek }: Props) {
             {/* Video track (always first, when video is loaded) */}
             {hasVideoClips && (
               <VideoTrack
+                pixelsPerSecond={pixelsPerSecond}
+                totalWidth={totalWidth}
+              />
+            )}
+
+            {/* Caption track (always visible when a video is loaded) */}
+            {videoPath && (
+              <CaptionTrack
                 pixelsPerSecond={pixelsPerSecond}
                 totalWidth={totalWidth}
               />
