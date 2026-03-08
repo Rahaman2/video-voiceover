@@ -37,6 +37,7 @@
   "build": {
     "appId": "com.voiceover.app",
     "productName": "VoiceOver",
+    "icon": "src/resources/voiceover-logo.png",
     "directories": {
       "output": "dist"
     },
